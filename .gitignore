@@ -1,0 +1,28 @@
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# React / Node
+node_modules/
+dist/
+
+# Local databases
+*.db
+*.sqlite3
+
+# Uploaded documents and local storage
+uploads/
+storage/
+
+# Editor and OS files
+.vscode/
+.idea/
+.DS_Store
