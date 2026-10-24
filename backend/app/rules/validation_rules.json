@@ -1,0 +1,48 @@
+{
+  "description": "Illustrative local demo checks only; not official AICTE requirements.",
+  "required_document_types": ["institution_certificate"],
+  "required_fields": ["institution_name", "document_number"],
+  "manual_review_confidence_below": 0.65,
+  "rules": {
+    "DOC_REQUIRED": {
+      "name": "Required document missing",
+      "severity": "HIGH",
+      "recommended_action": "Upload the illustrative required document or confirm the requirement with an authorized reviewer."
+    },
+    "FIELD_REQUIRED": {
+      "name": "Required field unavailable",
+      "severity": "MEDIUM",
+      "recommended_action": "Review the source document and enter or confirm this value manually."
+    },
+    "DOCUMENT_EXPIRED": {
+      "name": "Document is expired",
+      "severity": "HIGH",
+      "recommended_action": "Request a current document and have a reviewer confirm the expiry date."
+    },
+    "DATE_UNPARSEABLE": {
+      "name": "Expiry date needs review",
+      "severity": "MEDIUM",
+      "recommended_action": "Review the date as printed on the source document."
+    },
+    "INSTITUTION_MISMATCH": {
+      "name": "Institution name mismatch",
+      "severity": "HIGH",
+      "recommended_action": "Compare the application and document; resolve spelling or identity differences with a reviewer."
+    },
+    "DUPLICATE_DOCUMENT": {
+      "name": "Exact duplicate file",
+      "severity": "MEDIUM",
+      "recommended_action": "Confirm whether the duplicate upload is intentional and retain the correct copy."
+    },
+    "SUSPICIOUS_METADATA": {
+      "name": "Metadata indicator requires review",
+      "severity": "LOW",
+      "recommended_action": "Inspect the original document; this metadata indicator alone is not proof of alteration."
+    },
+    "LOW_CONFIDENCE_EXTRACTION": {
+      "name": "Extraction requires manual review",
+      "severity": "MEDIUM",
+      "recommended_action": "Open the original document and manually verify extracted content."
+    }
+  }
+}
