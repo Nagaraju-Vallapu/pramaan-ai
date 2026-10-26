@@ -28,11 +28,101 @@ def test_health_endpoints_remain_available(client):
     assert client.get("/health").json()["status"] == "ok"
 
 
+def test_cors_allows_local_vite_dev_server_origins(client):
+    response = client.options(
+        "/api/applications",
+        headers={
+            "Origin": "http://127.0.0.1:5175",
+            "Access-Control-Request-Method": "GET",
+            "Access-Control-Request-Headers": "authorization",
+        },
+    )
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == "http://127.0.0.1:5175"
+
+    external_origin = client.options(
+        "/api/applications",
+        headers={
+            "Origin": "https://untrusted.example",
+            "Access-Control-Request-Method": "GET",
+        },
+    )
+    assert "access-control-allow-origin" not in external_origin.headers
+
+
 def test_authentication_is_required_and_roles_are_returned(client):
     assert client.get("/api/applications").status_code == 401
     response = client.post("/auth/login", json={"username": "reviewer", "password": "reviewer-change-me"})
     assert response.status_code == 200
     assert response.json()["role"] == "reviewer"
+
+
+def test_admin_can_create_viewer_and_viewer_is_read_only(client, auth_headers):
+    created = client.post(
+        "/auth/users",
+        headers=auth_headers,
+        json={"username": "read.only", "password": "Viewer-password-123", "role": "viewer"},
+    )
+    assert created.status_code == 201, created.text
+    assert "password" not in created.json()
+    assert "password_hash" not in created.json()
+
+    login = client.post(
+        "/auth/login",
+        json={"username": "read.only", "password": "Viewer-password-123"},
+    )
+    assert login.status_code == 200
+    assert login.json()["role"] == "viewer"
+    viewer_headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
+    assert client.get("/api/applications", headers=viewer_headers).status_code == 200
+    assert client.post(
+        "/api/applications",
+        headers=viewer_headers,
+        json={"institution_name": "Viewer Must Not Create"},
+    ).status_code == 403
+    assert client.get("/auth/users", headers=viewer_headers).status_code == 403
+
+
+def test_deactivated_managed_user_token_is_revoked(client, auth_headers):
+    created = client.post(
+        "/auth/users",
+        headers=auth_headers,
+        json={"username": "temporary.reviewer", "password": "Reviewer-password-123", "role": "reviewer"},
+    )
+    token = client.post(
+        "/auth/login",
+        json={"username": "temporary.reviewer", "password": "Reviewer-password-123"},
+    ).json()["access_token"]
+    user_id = created.json()["id"]
+
+    deactivated = client.patch(
+        f"/auth/users/{user_id}/status",
+        headers=auth_headers,
+        json={"active": False},
+    )
+    assert deactivated.status_code == 200
+    assert deactivated.json()["active"] is False
+    assert client.get(
+        "/api/applications",
+        headers={"Authorization": f"Bearer {token}"},
+    ).status_code == 401
+    audit = client.get("/auth/users/audit", headers=auth_headers)
+    assert audit.status_code == 200
+    assert {event["action"] for event in audit.json()} == {"USER_CREATED", "USER_DEACTIVATED"}
+
+
+def test_reviewer_cannot_manage_accounts(client):
+    response = client.post(
+        "/auth/login",
+        json={"username": "reviewer", "password": "reviewer-change-me"},
+    )
+    headers = {"Authorization": f"Bearer {response.json()['access_token']}"}
+    assert client.get("/auth/users", headers=headers).status_code == 403
+    assert client.post(
+        "/auth/users",
+        headers=headers,
+        json={"username": "not.allowed", "password": "Viewer-password-123", "role": "viewer"},
+    ).status_code == 403
 
 
 def test_application_upload_validation_and_audit_workflow(client, auth_headers):
@@ -337,6 +427,64 @@ def test_admin_role_is_required_to_upload_or_create(client):
         files={"file": ("certificate.pdf", io.BytesIO(_pdf()), "application/pdf")},
     )
     assert upload.status_code == 403
+
+
+def test_reviewer_cannot_run_validation_or_issuer_verification(client, auth_headers):
+    created = client.post(
+        "/api/applications",
+        headers=auth_headers,
+        json={"institution_name": "Role Boundary Institute"},
+    )
+    application_id = created.json()["id"]
+    uploaded = client.post(
+        f"/api/applications/{application_id}/documents",
+        headers=auth_headers,
+        data={"document_type": "institution_certificate"},
+        files={"file": ("certificate.pdf", io.BytesIO(_pdf()), "application/pdf")},
+    )
+    reviewer = client.post(
+        "/auth/login",
+        json={"username": "reviewer", "password": "reviewer-change-me"},
+    ).json()
+    reviewer_headers = {"Authorization": f"Bearer {reviewer['access_token']}"}
+
+    validation = client.post(
+        f"/api/applications/{application_id}/validate",
+        headers=reviewer_headers,
+        json={},
+    )
+    verification = client.post(
+        f"/api/documents/{uploaded.json()['id']}/verify",
+        headers=reviewer_headers,
+    )
+
+    assert validation.status_code == 403
+    assert verification.status_code == 403
+
+
+def test_dashboard_summary_reports_real_application_status_and_activity(client, auth_headers):
+    created = client.post(
+        "/api/applications",
+        headers=auth_headers,
+        json={"institution_name": "Dashboard Synthetic Institute"},
+    )
+    application_id = created.json()["id"]
+    client.post(
+        f"/api/applications/{application_id}/validate",
+        headers=auth_headers,
+        json={},
+    )
+
+    summary = client.get("/api/dashboard/summary", headers=auth_headers)
+    assert summary.status_code == 200
+    payload = summary.json()
+    assert payload["applications_count"] == 1
+    assert payload["awaiting_review_count"] == 1
+    assert payload["status_counts"] == {"CHECKS_FLAGGED": 1}
+    assert payload["recent_activity"][0]["application_name"] == "Dashboard Synthetic Institute"
+    assert payload["recent_activity"][0]["action"] == "VALIDATION_RUN"
+    assert payload["recent_findings"][0]["application_name"] == "Dashboard Synthetic Institute"
+    assert payload["recent_findings"][0]["rule_name"]
 
 
 def test_synthetic_issuer_mismatch_and_not_found_results(client, auth_headers):

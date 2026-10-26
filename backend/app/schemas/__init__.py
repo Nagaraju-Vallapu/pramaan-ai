@@ -15,6 +15,34 @@ class LoginResponse(BaseModel):
     role: str
 
 
+class ManagedUserCreate(BaseModel):
+    username: str = Field(min_length=3, max_length=50, pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+    password: str = Field(min_length=12, max_length=256)
+    role: Literal["admin", "reviewer", "viewer"]
+
+
+class ManagedUserResponse(BaseModel):
+    id: str
+    username: str
+    role: str
+    active: bool
+    source: Literal["environment", "managed"]
+    created_by: str | None = None
+    created_at: datetime | None = None
+
+
+class UserStatusUpdate(BaseModel):
+    active: bool
+
+
+class UserAuditResponse(BaseModel):
+    id: str
+    actor: str
+    username: str
+    action: str
+    created_at: datetime
+
+
 class ApplicationCreate(BaseModel):
     institution_name: str = Field(min_length=2, max_length=300)
     reference_number: str | None = Field(default=None, max_length=120)

@@ -150,3 +150,25 @@ class AuditEvent(Base):
     details_json: Mapped[str] = mapped_column(Text, default="{}")
     created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utc_now)
     application: Mapped[Application] = relationship(back_populates="audit_events")
+
+
+class ManagedUser(Base):
+    __tablename__ = "managed_users"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    username: Mapped[str] = mapped_column(String(50), unique=True, index=True)
+    password_hash: Mapped[str] = mapped_column(String(256))
+    role: Mapped[str] = mapped_column(String(20))
+    active: Mapped[bool] = mapped_column(default=True)
+    created_by: Mapped[str] = mapped_column(String(120))
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utc_now)
+
+
+class UserAuditEvent(Base):
+    __tablename__ = "user_audit_events"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    actor: Mapped[str] = mapped_column(String(120))
+    username: Mapped[str] = mapped_column(String(120))
+    action: Mapped[str] = mapped_column(String(80))
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utc_now)

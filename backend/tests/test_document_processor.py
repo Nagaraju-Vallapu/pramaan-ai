@@ -5,6 +5,7 @@ import pymupdf as fitz
 import pytest
 from PIL import Image, ImageDraw
 
+from app.core.config import TESSERACT_CMD
 from app.services import document_processor
 from app.services.document_processor import DocumentProcessingError, process_document
 from app.services.ocr_service import ocr_image
@@ -96,7 +97,7 @@ def test_missing_tesseract_is_reported_without_fabricated_text(monkeypatch):
     assert all(field["value"] is None for field in result["fields"])
 
 
-@pytest.mark.skipif(shutil.which("tesseract") is not None, reason="Tesseract is installed")
+@pytest.mark.skipif(bool(TESSERACT_CMD or shutil.which("tesseract")), reason="Tesseract is installed")
 def test_real_missing_tesseract_result_is_explicit():
     image = Image.new("RGB", (200, 100), "white")
     buffer = io.BytesIO()
@@ -146,7 +147,7 @@ def test_unreadable_ocr_is_marked_for_manual_review_without_invented_text(monkey
     assert all(field["value"] is None for field in result["fields"])
 
 
-@pytest.mark.skipif(shutil.which("tesseract") is None, reason="Tesseract is not installed")
+@pytest.mark.skipif(not bool(TESSERACT_CMD or shutil.which("tesseract")), reason="Tesseract is not installed")
 def test_ocr_image_when_tesseract_is_available():
     image = Image.new("RGB", (1200, 300), "white")
     ImageDraw.Draw(image).text((40, 80), "Institution Name: Synthetic College", fill="black")

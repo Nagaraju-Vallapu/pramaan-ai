@@ -1,4 +1,5 @@
 import os
+import shutil
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -27,7 +28,13 @@ FRONTEND_ORIGINS = [
 ]
 TOKEN_SECRET = _setting("PRAMAAN_TOKEN_SECRET", "local-mvp-secret-change-before-deployment")
 TOKEN_TTL_SECONDS = int(_setting("PRAMAAN_TOKEN_TTL_SECONDS", str(8 * 60 * 60)))
-TESSERACT_CMD = _setting("PRAMAAN_TESSERACT_CMD", "")
+_configured_tesseract = _setting("PRAMAAN_TESSERACT_CMD", "")
+_windows_tesseract = Path("C:/Program Files/Tesseract-OCR/tesseract.exe")
+TESSERACT_CMD = (
+    _configured_tesseract
+    or shutil.which("tesseract")
+    or (str(_windows_tesseract) if _windows_tesseract.is_file() else "")
+)
 ADMIN_USERNAME = _setting("PRAMAAN_ADMIN_USERNAME", "admin")
 ADMIN_PASSWORD_HASH = _setting(
     "PRAMAAN_ADMIN_PASSWORD_HASH",

@@ -3,7 +3,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.security import Principal, current_principal
+from app.core.security import Principal, require_roles
 from app.models import Application, Finding, ReviewAction, ValidationRun
 from app.schemas import ReviewActionRequest, ReviewActionResponse
 from app.services.audit_service import record_event
@@ -16,7 +16,7 @@ def review_finding(
     finding_id: str,
     payload: ReviewActionRequest,
     db: Session = Depends(get_db),
-    principal: Principal = Depends(current_principal),
+    principal: Principal = Depends(require_roles("admin", "reviewer")),
 ) -> ReviewActionResponse:
     finding = db.scalar(select(Finding).where(Finding.id == finding_id))
     if finding is None:

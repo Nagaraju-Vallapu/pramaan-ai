@@ -6,7 +6,17 @@
 
 Pramaan AI is a local MVP designed to support application validation, document authentication workflows, and regulatory compliance checks for the AICTE approval process.
 
+<<<<<<< HEAD
 > **Important:** Pramaan AI is a review-support prototype, not an official AICTE service, an authenticity guarantee, or an automated institution approval/rejection system. Its compliance rules are illustrative and configurable. Issuer verification uses clearly labelled synthetic local records only.
+=======
+- Protected FastAPI APIs for applications, document upload/processing, validation, review actions, synthetic issuer checks and audit history. Dashboard metrics include status distribution, recent activity and recent findings derived from persisted records.
+- Local SQLite persistence with SQLAlchemy models; first startup creates missing tables. Use Alembic before managing production schema changes.
+- PDF text extraction with PyMuPDF; image/scanned-page OCR with Tesseract when installed. OCR absence is returned as `OCR_UNAVAILABLE` and never represented as successful extraction.
+- Responsive React + TypeScript dashboard backed by the API.
+- Password-hashed local admin/reviewer credentials and signed, expiring bearer tokens. Admins create cases, upload documents, run validation and initiate synthetic checks; reviewers inspect cases and findings and record review actions.
+- Admin-managed Reviewer, Viewer and additional Admin accounts with persistent storage, backend role enforcement, session revocation on deactivation and account audit history.
+- Synthetic demo scenarios for missing, expired, mismatched, duplicate, suspicious-metadata, manual-review, synthetic issuer match/mismatch/not-found cases.
+>>>>>>> 86e45bb (Complete Pramaan AI compliance workflow and UI improvements)
 
 ## Table of Contents
 
@@ -172,13 +182,27 @@ python -c "import secrets; print(secrets.token_urlsafe(48))"
 
 Copy the generated value into `PRAMAAN_TOKEN_SECRET`.
 
+<<<<<<< HEAD
 Return to the repository root when needed:
+=======
+### Tesseract OCR
+
+Install the Windows Tesseract distribution if it is not already present:
+>>>>>>> 86e45bb (Complete Pramaan AI compliance workflow and UI improvements)
 
 ```powershell
 Set-Location ..
 ```
 
+<<<<<<< HEAD
 ### 4. Install frontend dependencies
+=======
+Restart the backend after installation. The app searches `PATH` and the standard `C:\Program Files\Tesseract-OCR\tesseract.exe` location automatically. For a custom install, set `PRAMAAN_TESSERACT_CMD` in `backend\.env`. OCR tests run against generated synthetic images when Tesseract is available; the missing-engine behavior test remains covered when it is not. Without the native engine, digital-PDF text processing still works; scanned pages and images return `OCR_UNAVAILABLE` and require manual review. The backend never fabricates extracted content.
+
+### Start the API and frontend
+
+In the first PowerShell window:
+>>>>>>> 86e45bb (Complete Pramaan AI compliance workflow and UI improvements)
 
 ```powershell
 Set-Location frontend
@@ -217,7 +241,11 @@ Set-Location frontend
 npm run dev
 ```
 
+<<<<<<< HEAD
 Open the local URL displayed by Vite, normally:
+=======
+Open `http://localhost:5173` and sign in with the local demo admin credentials. Reviewers can use the demo reviewer login. Admins can create additional Admin, Reviewer or read-only Viewer accounts from **User management** in the sidebar. Managed accounts persist in SQLite; passwords are salted PBKDF2 hashes and are not retrievable. Environment-configured bootstrap accounts remain available and are not editable through the UI. Viewers can inspect permitted data but cannot make changes; only admins can create applications, upload documents, initiate validation or run simulated issuer checks. API tokens are held only in browser session storage.
+>>>>>>> 86e45bb (Complete Pramaan AI compliance workflow and UI improvements)
 
 http://localhost:5173
 
@@ -314,7 +342,17 @@ npm run build
 
 Run these checks after code changes and before the final demonstration. Do not describe the test suite as passing unless the command completes successfully.
 
+<<<<<<< HEAD
 ## Environment Configuration
+=======
+1. Start the API, then open the frontend and sign in as admin.
+2. Open **Applications**. The seeded demo includes nine labelled cases: valid, missing document, missing required field, expired, institution mismatch, duplicate upload, future metadata indicator, scanned/manual review, and unknown issuer reference.
+3. Open an application. Review the uploaded document, text and extracted values; unavailable values remain unavailable rather than being guessed.
+4. Run validation to see rule IDs, severity, status, source document, page/field evidence, recommended action and manual-review flag. The seeded data may be validated again; each run is separately recorded.
+5. Use **SIMULATED — SYNTHETIC TEST DATA** verification on the valid, mismatch or unknown-reference records. These are lookups against `backend/app/rules/synthetic_issuers.json`, not issuer or AICTE integrations.
+6. Record a reviewer action and inspect the audit timeline. No action automatically approves or rejects an institution.
+7. Use **User management** to add a Viewer account and verify that it can read application details but cannot record review actions or make other changes.
+>>>>>>> 86e45bb (Complete Pramaan AI compliance workflow and UI improvements)
 
 | Setting | Default / Purpose |
 |---|---|
@@ -333,7 +371,22 @@ Run these checks after code changes and before the final demonstration. Do not d
 
 See [`docs/architecture.md`](docs/architecture.md) and [`docs/API.md`](docs/API.md) for additional technical details.
 
+<<<<<<< HEAD
 ## Security and Limitations
+=======
+| Setting | Default | Purpose |
+|---|---|---|
+| `PRAMAAN_DATABASE_URL` | SQLite in `backend/pramaan.db` | SQLAlchemy database URL |
+| `PRAMAAN_STORAGE_DIR` | `backend/storage` | Private backend-managed document directory |
+| `PRAMAAN_MAX_UPLOAD_BYTES` | 15728640 | Upload limit (15 MiB) |
+| `PRAMAAN_FRONTEND_ORIGINS` | `http://localhost:5173` | Comma-separated CORS allowlist; local `localhost` and `127.0.0.1` development ports are also accepted |
+| `PRAMAAN_TOKEN_SECRET` | Local demo key | HMAC signing key; replace before use |
+| `PRAMAAN_TOKEN_TTL_SECONDS` | 28800 | Token lifetime |
+| `PRAMAAN_ADMIN_USERNAME` / `PRAMAAN_ADMIN_PASSWORD_HASH` | Local demo admin | Admin credential and PBKDF2-SHA256 hash |
+| `PRAMAAN_REVIEWER_USERNAME` / `PRAMAAN_REVIEWER_PASSWORD_HASH` | Local demo reviewer | Reviewer credential and PBKDF2-SHA256 hash |
+| `PRAMAAN_TESSERACT_CMD` | `PATH` or standard Windows install path | Optional explicit path to `tesseract.exe` |
+| `VITE_API_URL` | `http://localhost:8000` | Optional frontend API base URL |
+>>>>>>> 86e45bb (Complete Pramaan AI compliance workflow and UI improvements)
 
 Pramaan AI is a local MVP and is not production-certified.
 
@@ -350,6 +403,7 @@ Pramaan AI is a local MVP and is not production-certified.
 - External integrations must use authorized sources and are subject to availability and permissions.
 - All findings are advisory. Final regulatory decisions remain with the competent AICTE authorities.
 
+<<<<<<< HEAD
 ## Future Enhancements
 
 Potential future improvements include:
@@ -366,3 +420,12 @@ These are planned enhancements, not claims about currently implemented functiona
 ---
 
 **Pramaan AI — Supporting transparent, evidence-based regulatory document review.**
+=======
+- This is a local demonstration, not production-certified. The documented default credentials and signing key are public and must be replaced.
+- Uploads stay under backend storage and are not served as static files. The MVP checks extension, MIME, signatures/image format, PDF/image size and page/pixel limits; it does not include antivirus scanning, content-disarm/reconstruction, malware sandboxing or encryption at rest.
+- Bearer tokens are signed and expire. Managed-user deactivation immediately revokes that user's sessions. Bootstrap admin/reviewer accounts remain environment-configured; password recovery and a production identity provider are not included.
+- Managed accounts are stored in SQLite, and disabling one immediately invalidates its active sessions. Environment-configured bootstrap accounts remain separate; use a production identity provider and account-recovery workflow before deployment.
+- CORS defaults to the local Vite origin. Restrict it to trusted origins when deploying.
+- SQLite `create_all` is a startup convenience, not a migration system. Use migrations, deployment secrets, managed storage, TLS, rate limits and a security review before deployment.
+- Heuristic extraction, metadata indicators and all illustrative rules can be wrong. Suspicious metadata is not proof of forgery, extraction is not authenticity verification, synthetic checks are not issuer confirmations, and this prototype does not make statutory decisions.
+>>>>>>> 86e45bb (Complete Pramaan AI compliance workflow and UI improvements)

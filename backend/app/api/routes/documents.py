@@ -188,7 +188,7 @@ def list_documents(
 def verify_document(
     document_id: str,
     db: Session = Depends(get_db),
-    principal: Principal = Depends(current_principal),
+    principal: Principal = Depends(require_roles("admin")),
 ) -> VerificationResponse:
     document = _get_document(db, document_id)
     application = db.get(Application, document.application_id)

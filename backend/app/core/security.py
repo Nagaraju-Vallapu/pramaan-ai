@@ -2,12 +2,16 @@ import base64
 import hashlib
 import hmac
 import json
+import secrets
 import time
 from dataclasses import dataclass
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
+from app.core.database import get_db
 from app.core.config import (
     ADMIN_PASSWORD_HASH,
     ADMIN_USERNAME,
@@ -16,12 +20,14 @@ from app.core.config import (
     TOKEN_SECRET,
     TOKEN_TTL_SECONDS,
 )
+from app.models import ManagedUser
 
 bearer = HTTPBearer(auto_error=False)
 @dataclass(frozen=True)
 class Principal:
     username: str
     role: str
+    user_id: str | None = None
 
 
 def _b64encode(value: bytes) -> str:
@@ -32,7 +38,22 @@ def _b64decode(value: str) -> bytes:
     return base64.urlsafe_b64decode(value + "=" * (-len(value) % 4))
 
 
-def authenticate(username: str, password: str) -> Principal | None:
+def hash_password(password: str) -> str:
+    salt = secrets.token_bytes(16)
+    digest = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, 260_000)
+    return f"pbkdf2_sha256$260000${_b64encode(salt)}${_b64encode(digest)}"
+
+
+def authenticate(username: str, password: str, db: Session) -> Principal | None:
+    managed_user = db.scalar(
+        select(ManagedUser).where(
+            ManagedUser.username == username,
+            ManagedUser.active.is_(True),
+        )
+    )
+    if managed_user is not None and _verify_password(password, managed_user.password_hash):
+        return Principal(username=managed_user.username, role=managed_user.role, user_id=managed_user.id)
+
     users = (
         (ADMIN_USERNAME, ADMIN_PASSWORD_HASH, "admin"),
         (REVIEWER_USERNAME, REVIEWER_PASSWORD_HASH, "reviewer"),
@@ -68,6 +89,7 @@ def issue_token(principal: Principal) -> str:
             "sub": principal.username,
             "role": principal.role,
             "exp": int(time.time()) + TOKEN_TTL_SECONDS,
+            **({"uid": principal.user_id} if principal.user_id else {}),
         },
         separators=(",", ":"),
     ).encode()
@@ -86,17 +108,30 @@ def _decode_token(token: str) -> Principal | None:
         if int(payload["exp"]) < int(time.time()):
             return None
         role = payload["role"]
-        if role not in {"admin", "reviewer"}:
+        if role not in {"admin", "reviewer", "viewer"}:
             return None
-        return Principal(username=str(payload["sub"]), role=role)
+        user_id = payload.get("uid")
+        if user_id is not None and not isinstance(user_id, str):
+            return None
+        return Principal(username=str(payload["sub"]), role=role, user_id=user_id)
     except (ValueError, KeyError, TypeError, json.JSONDecodeError):
         return None
 
 
 async def current_principal(
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer),
+    db: Session = Depends(get_db),
 ) -> Principal:
     principal = _decode_token(credentials.credentials) if credentials else None
+    if principal and principal.user_id:
+        managed_user = db.get(ManagedUser, principal.user_id)
+        if (
+            managed_user is None
+            or not managed_user.active
+            or managed_user.username != principal.username
+            or managed_user.role != principal.role
+        ):
+            principal = None
     if principal is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

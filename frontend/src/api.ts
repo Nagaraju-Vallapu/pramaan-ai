@@ -15,6 +15,21 @@ api.interceptors.request.use((config) => {
   return config
 })
 
+api.interceptors.response.use(
+  (response) => response,
+  (error: unknown) => {
+    if (
+      axios.isAxiosError(error)
+      && error.response?.status === 401
+      && !error.config?.url?.endsWith('/auth/login')
+    ) {
+      logout()
+      window.dispatchEvent(new Event('pramaan:auth-expired'))
+    }
+    return Promise.reject(error)
+  },
+)
+
 export interface LoginResponse {
   access_token: string
   token_type: string
@@ -91,7 +106,48 @@ export interface AuditEntry {
 }
 
 export interface DashboardSummary {
-  [key: string]: unknown
+  applications_count: number
+  awaiting_review_count: number
+  flagged_applications_count: number
+  clear_applications_count: number
+  documents_count: number
+  open_findings_count: number
+  status_counts: Record<string, number>
+  recent_activity: Array<{
+    application_id: string
+    application_name: string
+    action: string
+    actor: string
+    created_at: string
+  }>
+  recent_findings: Array<{
+    id: string
+    application_id: string
+    application_name: string
+    rule_name: string
+    severity: string
+    reason: string
+    source_filename: string | null
+    page: number | null
+  }>
+}
+
+export interface UserAccount {
+  id: string
+  username: string
+  role: 'admin' | 'reviewer' | 'viewer'
+  active: boolean
+  source: 'environment' | 'managed'
+  created_by?: string | null
+  created_at?: string | null
+}
+
+export interface UserAuditEntry {
+  id: string
+  actor: string
+  username: string
+  action: string
+  created_at: string
 }
 
 export function unwrapList<T>(value: unknown): T[] {
@@ -161,6 +217,12 @@ export const client = {
   findingAction: (id: string | number, action: ReviewAction, note: string) =>
     api.post<unknown>(`/api/findings/${encodeURIComponent(String(id))}/actions`, { action, note }).then((r) => r.data),
   audit: (id: string) => api.get<unknown>(`/api/applications/${encodeURIComponent(id)}/audit`).then((r) => unwrapList<AuditEntry>(r.data)),
+  users: () => api.get<UserAccount[]>('/auth/users').then((r) => r.data),
+  createUser: (body: { username: string; password: string; role: UserAccount['role'] }) =>
+    api.post<UserAccount>('/auth/users', body).then((r) => r.data),
+  setUserActive: (id: string, active: boolean) =>
+    api.patch<UserAccount>(`/auth/users/${encodeURIComponent(id)}/status`, { active }).then((r) => r.data),
+  userAudit: () => api.get<UserAuditEntry[]>('/auth/users/audit').then((r) => r.data),
 }
 
 export function errorMessage(error: unknown): string {

@@ -64,8 +64,35 @@ def dashboard_summary(
         )
         .subquery()
     )
+    status_counts = {
+        status: count
+        for status, count in db.execute(
+            select(Application.status, func.count()).group_by(Application.status)
+        )
+    }
+    recent_events = db.execute(
+        select(AuditEvent, Application.institution_name)
+        .join(Application, AuditEvent.application_id == Application.id)
+        .order_by(AuditEvent.created_at.desc(), AuditEvent.id.desc())
+        .limit(5)
+    ).all()
+    recent_findings = db.execute(
+        select(Finding, ValidationRun.application_id, Application.institution_name)
+        .join(ValidationRun, Finding.validation_run_id == ValidationRun.id)
+        .join(latest_runs, Finding.validation_run_id == latest_runs.c.run_id)
+        .join(Application, ValidationRun.application_id == Application.id)
+        .where(latest_runs.c.latest_rank == 1)
+        .order_by(ValidationRun.created_at.desc(), Finding.id)
+        .limit(5)
+    ).all()
     return {
         "applications_count": db.scalar(select(func.count()).select_from(Application)) or 0,
+        "awaiting_review_count": sum(
+            count for status, count in status_counts.items()
+            if status in {"IN_PROGRESS", "REVIEW_REQUIRED", "CHECKS_FLAGGED"}
+        ),
+        "flagged_applications_count": status_counts.get("CHECKS_FLAGGED", 0),
+        "clear_applications_count": status_counts.get("CHECKS_CLEAR", 0),
         "documents_count": db.scalar(select(func.count()).select_from(Document)) or 0,
         "open_findings_count": db.scalar(
             select(func.count())
@@ -74,12 +101,30 @@ def dashboard_summary(
             .where(latest_runs.c.latest_rank == 1, Finding.status == "OPEN")
         )
         or 0,
-        "status_counts": {
-            status: count
-            for status, count in db.execute(
-                select(Application.status, func.count()).group_by(Application.status)
-            )
-        },
+        "status_counts": status_counts,
+        "recent_activity": [
+            {
+                "application_id": event.application_id,
+                "application_name": institution_name,
+                "action": event.action,
+                "actor": event.actor,
+                "created_at": event.created_at,
+            }
+            for event, institution_name in recent_events
+        ],
+        "recent_findings": [
+            {
+                "id": finding.id,
+                "application_id": application_id,
+                "application_name": institution_name,
+                "rule_name": finding.rule_name,
+                "severity": finding.severity,
+                "reason": finding.reason,
+                "source_filename": finding.source_filename,
+                "page": finding.page,
+            }
+            for finding, application_id, institution_name in recent_findings
+        ],
     }
 
 
@@ -137,7 +182,7 @@ def validate_application(
     application_id: str,
     payload: ValidationRequest | None = None,
     db: Session = Depends(get_db),
-    principal: Principal = Depends(current_principal),
+    principal: Principal = Depends(require_roles("admin")),
 ) -> ValidationResponse:
     application = _get_application(db, application_id)
     evaluation_date = payload.evaluation_date if payload and payload.evaluation_date else datetime.now(timezone.utc).date()
